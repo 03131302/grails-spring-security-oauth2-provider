@@ -16,22 +16,23 @@ package grails.plugin.springsecurity.oauthprovider
 
 import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.oauthprovider.approval.UserApprovalSupport
+import grails.plugin.springsecurity.oauthprovider.endpoint.PriorityOrderedFrameworkEndpointHandlerMapping
+import grails.plugin.springsecurity.oauthprovider.endpoint.RequiredRedirectResolver
+import grails.plugin.springsecurity.oauthprovider.endpoint.WrappedAuthorizationEndpoint
+import grails.plugin.springsecurity.oauthprovider.endpoint.WrappedTokenEndpoint
+import grails.plugin.springsecurity.oauthprovider.filter.StatelessSecurityContextPersistenceFilter
+import grails.plugin.springsecurity.oauthprovider.provider.GrailsOAuth2RequestFactory
+import grails.plugin.springsecurity.oauthprovider.provider.GrailsOAuth2RequestValidator
+import grails.plugin.springsecurity.oauthprovider.provider.error.BasicClientExceptionTranslator
 import grails.plugin.springsecurity.oauthprovider.provider.token.TokenEnhancerChainPopulator
 import grails.plugin.springsecurity.oauthprovider.serialization.DefaultOAuth2AdditionalInformationSerializer
 import grails.plugin.springsecurity.oauthprovider.serialization.DefaultOAuth2AuthenticationSerializer
 import grails.plugin.springsecurity.oauthprovider.serialization.DefaultOAuth2ScopeSerializer
-import grails.plugin.springsecurity.oauthprovider.endpoint.RequiredRedirectResolver
-import grails.plugin.springsecurity.oauthprovider.endpoint.WrappedAuthorizationEndpoint
-import grails.plugin.springsecurity.oauthprovider.endpoint.WrappedTokenEndpoint
-import grails.plugin.springsecurity.oauthprovider.endpoint.PriorityOrderedFrameworkEndpointHandlerMapping
-import grails.plugin.springsecurity.oauthprovider.provider.GrailsOAuth2RequestFactory
-import grails.plugin.springsecurity.oauthprovider.provider.GrailsOAuth2RequestValidator
-import grails.plugin.springsecurity.oauthprovider.provider.error.BasicClientExceptionTranslator
 import grails.plugin.springsecurity.oauthprovider.servlet.OAuth2AuthorizationEndpointExceptionResolver
 import grails.plugin.springsecurity.oauthprovider.servlet.OAuth2TokenEndpointExceptionResolver
-import grails.plugin.springsecurity.oauthprovider.filter.StatelessSecurityContextPersistenceFilter
 import grails.plugins.Plugin
-import org.springframework.boot.context.embedded.FilterRegistrationBean
+import groovy.util.logging.Slf4j
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.http.converter.ByteArrayHttpMessageConverter
 import org.springframework.http.converter.FormHttpMessageConverter
 import org.springframework.http.converter.StringHttpMessageConverter
@@ -52,7 +53,6 @@ import org.springframework.security.oauth2.provider.client.ClientCredentialsToke
 import org.springframework.security.oauth2.provider.client.ClientDetailsUserDetailsService
 import org.springframework.security.oauth2.provider.code.AuthorizationCodeTokenGranter
 import org.springframework.security.oauth2.provider.endpoint.DefaultRedirectResolver
-import org.springframework.security.oauth2.provider.endpoint.FrameworkEndpointHandlerMapping
 import org.springframework.security.oauth2.provider.error.DefaultOAuth2ExceptionRenderer
 import org.springframework.security.oauth2.provider.error.OAuth2AccessDeniedHandler
 import org.springframework.security.oauth2.provider.error.OAuth2AuthenticationEntryPoint
@@ -62,36 +62,34 @@ import org.springframework.security.oauth2.provider.password.ResourceOwnerPasswo
 import org.springframework.security.oauth2.provider.refresh.RefreshTokenGranter
 import org.springframework.security.oauth2.provider.token.DefaultAuthenticationKeyGenerator
 import org.springframework.security.oauth2.provider.token.DefaultTokenServices
-import org.springframework.security.oauth2.provider.token.TokenEnhancer
 import org.springframework.security.oauth2.provider.token.TokenEnhancerChain
 import org.springframework.security.web.access.ExceptionTranslationFilter
 import org.springframework.security.web.authentication.NullRememberMeServices
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter
 import org.springframework.security.web.savedrequest.NullRequestCache
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter
-import groovy.util.logging.Slf4j
 
 import static grails.plugin.springsecurity.oauthprovider.approval.UserApprovalSupport.*
 
 @Slf4j
 class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
 
-	def grailsVersion = '3.0.0 > *'
-	def loadAfter = ["springSecurityCore"]
+    def grailsVersion = '3.0.0 > *'
+    def loadAfter = ["springSecurityCore"]
 
-	def license = "APACHE"
-	def issueManagement = [ system:"GitHub", url:"http://github.com/bluesliverx/grails-spring-security-oauth2-provider/issues" ]
-	def scm = [ url:"http://github.com/bluesliverx/grails-spring-security-oauth2-provider" ]
+    def license = "APACHE"
+    def issueManagement = [system: "GitHub", url: "http://github.com/bluesliverx/grails-spring-security-oauth2-provider/issues"]
+    def scm = [url: "http://github.com/bluesliverx/grails-spring-security-oauth2-provider"]
 
-	def developers = [
-			[ name: "Brian Saville", email: "bksaville@gmail.com" ],
-			[ name: "Bobby Vandiver", email: "bobby.vandiver88@gmail.com" ],
-			[ name: "Roy Willemse", email: "roy.willemse@dynamind.nl" ]
-	]
-	def title = 'OAuth2 Provider support for the Spring Security plugin.'
-	def description = 'OAuth2 Provider support for the Spring Security plugin.'
+    def developers = [
+            [name: "Brian Saville", email: "bksaville@gmail.com"],
+            [name: "Bobby Vandiver", email: "bobby.vandiver88@gmail.com"],
+            [name: "Roy Willemse", email: "roy.willemse@dynamind.nl"]
+    ]
+    def title = 'OAuth2 Provider support for the Spring Security plugin.'
+    def description = 'OAuth2 Provider support for the Spring Security plugin.'
 
-	def documentation = 'http://bluesliverx.github.io/grails-spring-security-oauth2-provider/'
+    def documentation = 'http://bluesliverx.github.io/grails-spring-security-oauth2-provider/'
 
     def profiles = ['web']
 
@@ -104,80 +102,82 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
     ]
 
     @Override
-    Closure doWithSpring() {{ ->
-        def conf = loadSecurityConfig()
-        if(!conf) {
-            return
+    Closure doWithSpring() {
+        { ->
+            def conf = loadSecurityConfig()
+            if (!conf) {
+                return
+            }
+
+            println 'Configuring Spring Security OAuth2 provider ...'
+
+            // Required for list constructor arguments for versions < 2.2-RC1
+            // GRAILS-4995: https://jira.grails.org/browse/GRAILS-4995
+            xmlns util: "http://www.springframework.org/schema/util"
+
+            /* Enable GORM backed implementations */
+            configureGormSupport.delegate = delegate
+            configureGormSupport()
+
+            /* Configure token enhancer chain */
+            configureTokenEnhancerChain.delegate = delegate
+            configureTokenEnhancerChain(conf)
+
+            /* Establish baseline token support */
+            configureTokenServices.delegate = delegate
+            configureTokenServices(conf)
+
+            /* Register OAuth2 request creation and validation support */
+            configureOAuth2RequestSupport.delegate = delegate
+            configureOAuth2RequestSupport(conf)
+
+            /* Register token granters */
+            configureTokenGranters.delegate = delegate
+            configureTokenGranters(conf)
+
+            /* Register redirect resolver */
+            configureRedirectResolver.delegate = delegate
+            configureRedirectResolver(conf)
+
+            /* Register user approval handler to allow explicit approval or auto-approval */
+            configureUserApprovalHandler.delegate = delegate
+            configureUserApprovalHandler(conf)
+
+            /* Register authorization and token endpoints */
+            configureEndpoints.delegate = delegate
+            configureEndpoints(conf)
+
+            /* Register exception resolvers for integration with the endpoints' @ExceptionHandler methods */
+            configureExceptionResolvers.delegate = delegate
+            configureExceptionResolvers()
+
+            /* Register details service, authentication provider and filter for client authentication */
+            configureClientAuthentication.delegate = delegate
+            configureClientAuthentication(conf)
+
+            /* Register OAuth2 authentication entry point and access denied handler */
+            configureSecurityHandlers.delegate = delegate
+            configureSecurityHandlers(conf)
+
+            /* Ensure access tokens are extracted from incoming requests for access to protected resources */
+            configureResourceProtection.delegate = delegate
+            configureResourceProtection(conf)
+
+            /* Access to OAuth2 resources and the token endpoint must be stateless */
+            configureStatelessFilters.delegate = delegate
+            configureStatelessFilters(conf)
+
+            /* Enable HTTP Basic Authentication for client credentials */
+            configureBasicAuthenticationFilter.delegate = delegate
+            configureBasicAuthenticationFilter(conf)
+
+            /* Ensure OAuth2 filters only fire as part of the Spring Security filter chain */
+            configureFilterRegistrationBeans.delegate = delegate
+            configureFilterRegistrationBeans()
+
+            println "... done configuring Spring Security OAuth2 provider"
         }
-
-		println 'Configuring Spring Security OAuth2 provider ...'
-
-        // Required for list constructor arguments for versions < 2.2-RC1
-        // GRAILS-4995: https://jira.grails.org/browse/GRAILS-4995
-        xmlns util:"http://www.springframework.org/schema/util"
-
-        /* Enable GORM backed implementations */
-        configureGormSupport.delegate = delegate
-        configureGormSupport()
-
-        /* Configure token enhancer chain */
-        configureTokenEnhancerChain.delegate = delegate
-        configureTokenEnhancerChain(conf)
-
-        /* Establish baseline token support */
-        configureTokenServices.delegate = delegate
-        configureTokenServices(conf)
-
-        /* Register OAuth2 request creation and validation support */
-        configureOAuth2RequestSupport.delegate = delegate
-        configureOAuth2RequestSupport(conf)
-
-        /* Register token granters */
-        configureTokenGranters.delegate = delegate
-        configureTokenGranters(conf)
-
-        /* Register redirect resolver */
-        configureRedirectResolver.delegate = delegate
-        configureRedirectResolver(conf)
-
-        /* Register user approval handler to allow explicit approval or auto-approval */
-        configureUserApprovalHandler.delegate = delegate
-        configureUserApprovalHandler(conf)
-
-        /* Register authorization and token endpoints */
-        configureEndpoints.delegate = delegate
-        configureEndpoints(conf)
-
-        /* Register exception resolvers for integration with the endpoints' @ExceptionHandler methods */
-        configureExceptionResolvers.delegate = delegate
-        configureExceptionResolvers()
-
-        /* Register details service, authentication provider and filter for client authentication */
-        configureClientAuthentication.delegate = delegate
-        configureClientAuthentication(conf)
-
-        /* Register OAuth2 authentication entry point and access denied handler */
-        configureSecurityHandlers.delegate = delegate
-        configureSecurityHandlers(conf)
-
-        /* Ensure access tokens are extracted from incoming requests for access to protected resources */
-        configureResourceProtection.delegate = delegate
-        configureResourceProtection(conf)
-
-        /* Access to OAuth2 resources and the token endpoint must be stateless */
-        configureStatelessFilters.delegate = delegate
-        configureStatelessFilters(conf)
-
-        /* Enable HTTP Basic Authentication for client credentials */
-        configureBasicAuthenticationFilter.delegate = delegate
-        configureBasicAuthenticationFilter(conf)
-
-        /* Ensure OAuth2 filters only fire as part of the Spring Security filter chain */
-        configureFilterRegistrationBeans.delegate = delegate
-        configureFilterRegistrationBeans()
-
-		println "... done configuring Spring Security OAuth2 provider"
-	}}
+    }
 
     private configureGormSupport = {
         /* Gorm backed beans */
@@ -238,7 +238,7 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         def tokenEndpointTokenGrantersBeanNames = []
 
         /* authorization-code */
-        if(grantTypes.authorizationCode) {
+        if (grantTypes.authorizationCode) {
             authorizationCodeTokenGranter(AuthorizationCodeTokenGranter,
                     ref('tokenServices'), ref('authorizationCodeServices'), ref('clientDetailsService'), ref('oauth2RequestFactory'))
 
@@ -247,19 +247,19 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         }
 
         /* refresh-token */
-        if(grantTypes.refreshToken) {
+        if (grantTypes.refreshToken) {
             refreshTokenGranter(RefreshTokenGranter, ref('tokenServices'), ref('clientDetailsService'), ref('oauth2RequestFactory'))
             tokenEndpointTokenGrantersBeanNames << 'refreshTokenGranter'
         }
 
         /* implicit */
-        if(grantTypes.implicit) {
+        if (grantTypes.implicit) {
             implicitGranter(ImplicitTokenGranter, ref('tokenServices'), ref('clientDetailsService'), ref('oauth2RequestFactory'))
             authorizationEndpointTokenGrantersBeanNames << 'implicitGranter'
         }
 
         /* client-credentials */
-        if(grantTypes.clientCredentials) {
+        if (grantTypes.clientCredentials) {
             clientCredentialsGranter(ClientCredentialsTokenGranter,
                     ref('tokenServices'), ref('clientDetailsService'), ref('oauth2RequestFactory'))
 
@@ -267,7 +267,7 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         }
 
         /* password; authenticationManager provided by Spring Security Core plugin */
-        if(grantTypes.password) {
+        if (grantTypes.password) {
             resourceOwnerPasswordGranter(ResourceOwnerPasswordTokenGranter,
                     ref('authenticationManager'), ref('tokenServices'), ref('clientDetailsService'), ref('oauth2RequestFactory'))
 
@@ -291,11 +291,10 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
     }
 
     private configureRedirectResolver = { conf ->
-        if(conf.oauthProvider.authorization.requireRegisteredRedirectUri) {
+        if (conf.oauthProvider.authorization.requireRegisteredRedirectUri) {
             /* Require clients to have registered redirect URIs */
             redirectResolver(RequiredRedirectResolver)
-        }
-        else {
+        } else {
             /* This resolver will use the requested redirect URI if client does not have one registered */
             redirectResolver(DefaultRedirectResolver)
         }
@@ -347,13 +346,11 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         /* The method of authorization auto approval to use */
         UserApprovalSupport support = conf.oauthProvider.approval.auto
 
-        if(support == EXPLICIT) {
+        if (support == EXPLICIT) {
             springConfig.addAlias 'userApprovalHandler', 'defaultUserApprovalHandler'
-        }
-        else if(support == TOKEN_STORE) {
+        } else if (support == TOKEN_STORE) {
             springConfig.addAlias 'userApprovalHandler', 'tokenStoreUserApprovalHandler'
-        }
-        else if(support == APPROVAL_STORE) {
+        } else if (support == APPROVAL_STORE) {
             springConfig.addAlias 'userApprovalHandler', 'approvalStoreUserApprovalHandler'
         }
     }
@@ -387,13 +384,13 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         /* Register handler mapping for token and authorization endpoints */
         oauth2HandlerMapping(PriorityOrderedFrameworkEndpointHandlerMapping) {
             mappings = [
-                    "/oauth/token": conf.oauthProvider.tokenEndpointUrl,
+                    "/oauth/token"    : conf.oauthProvider.tokenEndpointUrl,
                     "/oauth/authorize": conf.oauthProvider.authorizationEndpointUrl
             ]
         }
 
         /* Register jackson handler for token responses */
-        annotationHandlerAdapter(RequestMappingHandlerAdapter){
+        annotationHandlerAdapter(RequestMappingHandlerAdapter) {
             messageConverters = availableMessageConverters
         }
     }
@@ -472,7 +469,7 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         // Should the stateless filter be registered in the filter chain
         boolean registerStatelessFilter = conf.oauthProvider.registerStatelessFilter as boolean
 
-        if(registerStatelessFilter) {
+        if (registerStatelessFilter) {
             // We add the stateless filter to the chain by default and require the plugin consumer to remove
             // either the session based or stateless security context filter from the filter chain where appropriate
             SpringSecurityUtils.registerFilter 'statelessSecurityContextPersistenceFilter',
@@ -490,7 +487,7 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         // Should the custom exception translation filter be registered in the filter chain
         boolean registerExceptionTranslationFilter = conf.oauthProvider.registerExceptionTranslationFilter as boolean
 
-        if(registerExceptionTranslationFilter) {
+        if (registerExceptionTranslationFilter) {
             // Similar to the stateless security context filter, this is registered in the filter chain,
             // allowing the plugin consumer to remove this filter or the Core plugin provided exceptionTranslationFilter
             // where necessary to meet their needs
@@ -503,7 +500,7 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
         // Should the basic authentication filter be registered in the filter chain
         boolean registerBasicAuthFilter = conf.oauthProvider.registerBasicAuthenticationFilter as boolean
 
-        if(registerBasicAuthFilter) {
+        if (registerBasicAuthFilter) {
             // This allows us to install a custom ExceptionTranslator, to keep the error messages consistent with
             // the alternative client authentication mechanism (via request parameters)
             basicClientAuthenticationEntryPoint(OAuth2AuthenticationEntryPoint) {
@@ -569,7 +566,7 @@ class SpringSecurityOauth2ProviderGrailsPlugin extends Plugin {
     @Override
     void doWithApplicationContext() {
         def conf = loadSecurityConfig()
-        if(!conf) {
+        if (!conf) {
             return
         }
 

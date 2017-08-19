@@ -18,7 +18,7 @@ task acceptanceTest(dependsOn: ":spring-security-oauth2-provider:install") {
         }
         else {
             println "Specify versions of Grails to test in a CSV list:\n" +
-                    "gradle acceptanceTest -P grailsVersions=3.0.9,3.0.10"
+                    "gradle acceptanceTest -P grailsVersions=3.0.9,3.0.10,3.3.0"
         }
 
         grailsVersions.each { String version ->
