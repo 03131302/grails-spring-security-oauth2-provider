@@ -1,14 +1,14 @@
 package grails.plugin.springsecurity.oauthprovider
 
+import grails.core.GrailsApplication
+import grails.gorm.transactions.Transactional
 import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.oauthprovider.serialization.OAuth2AdditionalInformationSerializer
-import grails.core.GrailsApplication
-import grails.transaction.Transactional
-import org.springframework.security.oauth2.provider.client.BaseClientDetails
 import org.springframework.security.oauth2.provider.ClientDetails
 import org.springframework.security.oauth2.provider.ClientDetailsService
 import org.springframework.security.oauth2.provider.ClientRegistrationException
 import org.springframework.security.oauth2.provider.NoSuchClientException
+import org.springframework.security.oauth2.provider.client.BaseClientDetails
 
 @Transactional(readOnly = true)
 class GormClientDetailsService implements ClientDetailsService {
@@ -25,7 +25,7 @@ class GormClientDetailsService implements ClientDetailsService {
         def clientIdPropertyName = clientLookup.clientIdPropertyName
 
         def client = Client.findWhere((clientIdPropertyName): clientId)
-        if(client == null) {
+        if (client == null) {
             throw new NoSuchClientException("No client with requested id: $clientId")
         }
         return createClientDetails(client, clientLookup, defaultClientConfig)
@@ -42,7 +42,7 @@ class GormClientDetailsService implements ClientDetailsService {
 
     private Class getClientClass(String clientClassName) {
         def clientClass = clientClassName ? grailsApplication.getDomainClass(clientClassName) : null
-        if(!clientClass) {
+        if (!clientClass) {
             throw new IllegalArgumentException("The specified client domain class '$clientClassName' is not a domain class")
         }
         return clientClass.clazz
@@ -75,7 +75,7 @@ class GormClientDetailsService implements ClientDetailsService {
         def details = new BaseClientDetails(clientId, csv(resourceIds), csv(scopes), csv(authorizedGrantTypes), csv(authorities), csv(redirectUris))
         details.clientSecret = client."$clientSecretPropertyName"
         details.autoApproveScopes = getPropertyOrDefault(client, autoApproveScopesPropertyName, defaultClientConfig.autoApproveScopes) as Set<String>
-        details.accessTokenValiditySeconds  = getPropertyOrDefault(client, accessTokenValiditySecondsPropertyName, defaultClientConfig.accessTokenValiditySeconds) as Integer
+        details.accessTokenValiditySeconds = getPropertyOrDefault(client, accessTokenValiditySecondsPropertyName, defaultClientConfig.accessTokenValiditySeconds) as Integer
         details.refreshTokenValiditySeconds = getPropertyOrDefault(client, refreshTokenValiditySecondsPropertyName, defaultClientConfig.refreshTokenValiditySeconds) as Integer
         details.additionalInformation = getAdditionalInformationOrDefault(client, additionalInformationPropertyName, defaultClientConfig.additionalInformation)
         correctAuthorizedGrantTypes(details, authorizedGrantTypes)
@@ -89,7 +89,7 @@ class GormClientDetailsService implements ClientDetailsService {
     private Map<String, Object> getAdditionalInformationOrDefault(client, propertyName, defaultProperty) {
         Map<String, Object> additionalInformation = defaultProperty
 
-        if(client."$propertyName" != null) {
+        if (client."$propertyName" != null) {
             additionalInformation = clientAdditionalInformationSerializer.deserialize(client."$propertyName")
         }
 
@@ -102,6 +102,7 @@ class GormClientDetailsService implements ClientDetailsService {
         Thus we need to ensure that the ClientDetails we return only contain the authorized grant types that
         either the client or the default config allows.
       */
+
     private void correctAuthorizedGrantTypes(BaseClientDetails clientDetails, Collection<String> authorizedGrantTypes) {
         clientDetails.authorizedGrantTypes = authorizedGrantTypes
     }

@@ -30,7 +30,6 @@ apply plugin: "org.grails.grails-plugin"
 apply plugin: "org.grails.grails-gsp"
 apply plugin: "org.grails.grails-doc"
 
-
 // Workaround for jansi dependency problem with groovydoc (https://discuss.gradle.org/t/gradle-task-groovydoc-failing-with-noclassdeffounderror/2541/21)
 configurations {
     jansi.extendsFrom(runtime)

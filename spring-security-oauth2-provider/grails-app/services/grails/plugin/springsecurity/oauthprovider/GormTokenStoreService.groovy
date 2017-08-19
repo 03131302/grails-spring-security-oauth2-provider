@@ -1,18 +1,13 @@
 package grails.plugin.springsecurity.oauthprovider
 
+import grails.core.GrailsApplication
+import grails.gorm.transactions.Transactional
 import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.oauthprovider.exceptions.OAuth2ValidationException
 import grails.plugin.springsecurity.oauthprovider.serialization.OAuth2AdditionalInformationSerializer
 import grails.plugin.springsecurity.oauthprovider.serialization.OAuth2AuthenticationSerializer
 import grails.plugin.springsecurity.oauthprovider.serialization.OAuth2ScopeSerializer
-import grails.core.GrailsApplication
-import grails.transaction.Transactional
-import org.springframework.security.oauth2.common.DefaultExpiringOAuth2RefreshToken
-import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken
-import org.springframework.security.oauth2.common.DefaultOAuth2RefreshToken
-import org.springframework.security.oauth2.common.ExpiringOAuth2RefreshToken
-import org.springframework.security.oauth2.common.OAuth2AccessToken
-import org.springframework.security.oauth2.common.OAuth2RefreshToken
+import org.springframework.security.oauth2.common.*
 import org.springframework.security.oauth2.provider.OAuth2Authentication
 import org.springframework.security.oauth2.provider.token.AuthenticationKeyGenerator
 import org.springframework.security.oauth2.provider.token.TokenStore
@@ -46,7 +41,7 @@ class GormTokenStoreService implements TokenStore {
 
             def gormAccessToken = GormAccessToken.findWhere((valuePropertyName): token)
 
-            if(gormAccessToken) {
+            if (gormAccessToken) {
                 def serializedAuthentication = gormAccessToken."$authenticationPropertyName"
                 authentication = oauth2AuthenticationSerializer.deserialize(serializedAuthentication)
             }
@@ -89,7 +84,7 @@ class GormTokenStoreService implements TokenStore {
         gormAccessToken."$scopePropertyName" = accessTokenScopeSerializer.serialize(token.scope ?: [] as Set)
         gormAccessToken."$additionalInformationPropertyName" = accessTokenAdditionalInformationSerializer.serialize(token.additionalInformation ?: [:])
 
-        if(!gormAccessToken.save()) {
+        if (!gormAccessToken.save()) {
             throw new OAuth2ValidationException("Failed to save access token", gormAccessToken.errors)
         }
     }
@@ -131,16 +126,16 @@ class GormTokenStoreService implements TokenStore {
 
         def ctorArgs = [
                 (authenticationPropertyName): oauth2AuthenticationSerializer.serialize(authentication),
-                (valuePropertyName): refreshToken.value,
+                (valuePropertyName)         : refreshToken.value,
         ]
 
-        if(refreshToken instanceof ExpiringOAuth2RefreshToken) {
+        if (refreshToken instanceof ExpiringOAuth2RefreshToken) {
             def expirationPropertyName = refreshTokenLookup.expirationPropertyName
             ctorArgs << [(expirationPropertyName): refreshToken.expiration]
         }
 
         def gormRefreshToken = GormRefreshToken.newInstance(ctorArgs)
-        if(!gormRefreshToken.save()) {
+        if (!gormRefreshToken.save()) {
             throw new OAuth2ValidationException("Failed to save refresh token", gormRefreshToken.errors)
         }
     }
@@ -220,7 +215,7 @@ class GormTokenStoreService implements TokenStore {
         def accessToken = createOAuth2AccessToken(gormAccessToken)
         def tokenValue = accessToken.value
 
-        if(authenticationKey != getAuthenticationKeyFromAccessToken(tokenValue)) {
+        if (authenticationKey != getAuthenticationKeyFromAccessToken(tokenValue)) {
             log.warn("Authentication [$authentication] is not associated with retrieved access token")
             removeAccessToken(tokenValue)
             storeAccessToken(accessToken, authentication)
@@ -311,10 +306,9 @@ class GormTokenStoreService implements TokenStore {
 
         def refreshToken = null
 
-        if(value && expiration) {
+        if (value && expiration) {
             refreshToken = new DefaultExpiringOAuth2RefreshToken(value, expiration)
-        }
-        else if(value) {
+        } else if (value) {
             refreshToken = new DefaultOAuth2RefreshToken(value)
         }
 

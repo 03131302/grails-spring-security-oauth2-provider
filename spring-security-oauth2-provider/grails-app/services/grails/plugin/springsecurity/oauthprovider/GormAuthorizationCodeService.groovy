@@ -1,10 +1,10 @@
 package grails.plugin.springsecurity.oauthprovider
 
+import grails.core.GrailsApplication
+import grails.gorm.transactions.Transactional
 import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.oauthprovider.exceptions.OAuth2ValidationException
 import grails.plugin.springsecurity.oauthprovider.serialization.OAuth2AuthenticationSerializer
-import grails.core.GrailsApplication
-import grails.transaction.Transactional
 import org.springframework.security.oauth2.common.exceptions.InvalidGrantException
 import org.springframework.security.oauth2.provider.OAuth2Authentication
 import org.springframework.security.oauth2.provider.code.RandomValueAuthorizationCodeServices
@@ -29,14 +29,14 @@ class GormAuthorizationCodeService extends RandomValueAuthorizationCodeServices 
     protected void store(String code, OAuth2Authentication authentication) {
         def (className, codePropertyName, authenticationPropertyName) = getAuthorizationCodeConfiguration()
         def ctorArgs = [
-                (codePropertyName): code,
+                (codePropertyName)          : code,
                 (authenticationPropertyName): oauth2AuthenticationSerializer.serialize(authentication)
         ]
 
         Class AuthorizationCode = getAuthorizationCodeClass(className)
 
         def gormAuthorizationCode = AuthorizationCode.newInstance(ctorArgs)
-        if(!gormAuthorizationCode.save()) {
+        if (!gormAuthorizationCode.save()) {
             throw new OAuth2ValidationException("Failed to save authorization code", gormAuthorizationCode.errors)
         }
     }
@@ -54,7 +54,7 @@ class GormAuthorizationCodeService extends RandomValueAuthorizationCodeServices 
             def serializedAuthentication = gormAuthorizationCode?."$authenticationPropertyName"
             authentication = oauth2AuthenticationSerializer.deserialize(serializedAuthentication)
         }
-        catch(IllegalArgumentException e) {
+        catch (IllegalArgumentException e) {
             log.warn("Failed to deserialize authentication for code")
             authentication = null
         }
@@ -77,7 +77,7 @@ class GormAuthorizationCodeService extends RandomValueAuthorizationCodeServices 
 
     private Class getAuthorizationCodeClass(String authorizationCodeClassName) {
         def authorizationCodeClass = authorizationCodeClassName ? grailsApplication.getDomainClass(authorizationCodeClassName) : null
-        if(!authorizationCodeClass) {
+        if (!authorizationCodeClass) {
             throw new IllegalArgumentException("The specified authorization code domain class '$authorizationCodeClassName' is not a domain class")
         }
         return authorizationCodeClass.clazz
